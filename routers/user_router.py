@@ -3,7 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from schemas.user_schema import UserDisplay, UserFilter, UserCurrent
 from sqlalchemy.orm import Session
 from dependencies import get_current_user, get_db
-from core.exceptions.user_exceptions import PermissionException, UserNotFoundException, UserCannotBePromotedException, UserCannotBeDemotedException
+from core.exceptions.user_exceptions import (
+    PermissionException, 
+    UserNotFoundException, 
+    UserCannotBePromotedException, 
+    UserCannotBeDemotedException,
+    InvalidPaginationParams)
 from services.user_service import UserService
 
 router = APIRouter()
@@ -12,12 +17,16 @@ router = APIRouter()
 async def get_users(
     filter_form: UserFilter = Depends(),
     current_user: UserCurrent = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    offset: int = 0,
+    limit: int = 10
 ):
     try:
-        return await UserService.get_users(db, filter_form, current_user)
+        return await UserService.get_users(db, filter_form, current_user, offset=offset, limit=limit)
     except PermissionException:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to list users")
+    except InvalidPaginationParams:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid pagination parameters")
 
 
 @router.put("/users/promote/{user_id}")

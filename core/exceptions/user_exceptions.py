@@ -9,3 +9,6 @@ class UserCannotBePromotedException(Exception):
 
 class UserCannotBeDemotedException(Exception):
     pass
+
+class InvalidPaginationParams(Exception):
+    pass

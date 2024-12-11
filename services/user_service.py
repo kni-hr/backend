@@ -5,23 +5,35 @@ from core.exceptions.user_exceptions import (
     PermissionException, 
     UserNotFoundException, 
     UserCannotBePromotedException, 
-    UserCannotBeDemotedException
+    UserCannotBeDemotedException,
+    InvalidPaginationParams,
     )
 from typing import List
 
 class UserService:
     @classmethod
-    async def get_users(cls, db: Session, filter_form: UserFilter, current_user: UserCurrent) -> List[UserDisplay]:
+    async def get_users(cls, db: Session, filter_form: UserFilter, current_user: UserCurrent, offset: int, limit: int) -> List[UserDisplay]:
        if current_user.role == "Candidate":
            raise PermissionException
        
+       if offset < 0 or limit < 0:
+           raise InvalidPaginationParams
+       
        if current_user.role == "HR":
-           return UserRepository.get_filtered_users_for_hr(db, filter_form)
+            users = UserRepository.get_filtered_users_for_hr(db, filter_form)
+            if offset + limit > len(users):
+                return users[offset:]
+
+            return users[offset:offset+limit]
        
        else:
-           return UserRepository.get_filtered_users(db, filter_form, current_user.id)
+            users = UserRepository.get_filtered_users(db, filter_form, current_user.id)
+            if offset + limit > len(users):
+                return users[offset:]
+            
+            return users[offset:offset+limit]
            
-       
+           
     
     @classmethod
     async def promote_user(cls, db: Session, user_id: int, current_user: UserCurrent):
