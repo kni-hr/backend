@@ -1,14 +1,40 @@
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.responses import RedirectResponse
 
-class Hero(SQLModel, table=True):
+
+class Candidate(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(index=True)
+    surname: str = Field(index=True)
     age: int | None = Field(default=None, index=True)
-    secret_name: str
+    email: str = Field(index=True)
+    experience: int = Field(index=True)
+    login: str = Field(index=True)
+    password: str = Field(index=True)
+
+class HR(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    surname: str = Field(index=True)
+    age: int | None = Field(default=None, index=True)
+    email: str = Field(index=True)
+    salary: int = Field(index=True)
+    login: str = Field(index=True)
+    password: str = Field(index=True)
+
+class Admin(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    login: str = Field(index=True)
+    password: str = Field(index=True)
+
+
 
 
 # PostgreSQL database configuration
@@ -31,42 +57,46 @@ SessionDep = Annotated[Session, Depends(get_session)]
 app = FastAPI()
 
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+templates = Jinja2Templates(directory="templates")
+
+
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
 
 
-@app.post("/heroes/")
-def create_hero(hero: Hero, session: SessionDep) -> Hero:
-    session.add(hero)
+@app.post("/candidates/add/")
+def create_hero(candidate: Candidate, session: SessionDep) -> Candidate:
+    session.add(candidate)
     session.commit()
-    session.refresh(hero)
-    return hero
+    session.refresh(candidate)
+    return candidate
 
-
-@app.get("/heroes/")
-def read_heroes(
+@app.get("/",response_class=HTMLResponse)
+async def signin(request:Request):
+    return templates.TemplateResponse("new_candidate_form.html",context={"request":request})
+@app.get("/candidates/")
+def read_candidates(
     session: SessionDep,
     offset: int = 0,
     limit: Annotated[int, Query(le=100)] = 100,
-) -> list[Hero]:
-    heroes = session.exec(select(Hero).offset(offset).limit(limit)).all()
-    return heroes
+) -> list[Candidate]:
+    candidates = session.exec(select(Candidate).offset(offset).limit(limit)).all()
+    return candidates
 
 
-@app.get("/heroes/{hero_id}")
-def read_hero(hero_id: int, session: SessionDep) -> Hero:
-    hero = session.get(Hero, hero_id)
-    if not hero:
-        raise HTTPException(status_code=404, detail="Hero not found")
-    return hero
+@app.get("/candidates/{candidate_id}", response_class=HTMLResponse)
+async def read_candidate(request: Request, candidate_id: int):
+    return templates.TemplateResponse("candidate.html", {"request": request, "id": candidate_id})
 
 
-@app.delete("/heroes/{hero_id}")
-def delete_hero(hero_id: int, session: SessionDep):
-    hero = session.get(Hero, hero_id)
-    if not hero:
-        raise HTTPException(status_code=404, detail="Hero not found")
-    session.delete(hero)
+@app.delete("/candidates/{candidate_id}")
+def delete_candidate(candidate_id: int, session: SessionDep):
+    candidate = session.get(Candidate, candidate_id)
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    session.delete(candidate)
     session.commit()
     return {"ok": True}
