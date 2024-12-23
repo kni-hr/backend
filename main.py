@@ -6,6 +6,7 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from passlib.context import CryptContext
 from starlette.responses import RedirectResponse
 
 
@@ -56,6 +57,11 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 app = FastAPI()
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    """Hashes a password using bcrypt."""
+    return pwd_context.hash(password)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -69,6 +75,7 @@ def on_startup():
 
 @app.post("/candidates/add/")
 def create_hero(candidate: Candidate, session: SessionDep) -> Candidate:
+    candidate.password = hash_password(candidate.password)
     session.add(candidate)
     session.commit()
     session.refresh(candidate)
